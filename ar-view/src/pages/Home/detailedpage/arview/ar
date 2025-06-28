@@ -1,0 +1,324 @@
+import React, { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import {
+  ArrowLeft,
+  Upload,
+  ZoomIn,
+  ZoomOut,
+  MoveHorizontal,
+  Lock,
+} from "lucide-react";
+import config from "../../../../config"; // Import the config file
+
+export default function ARView({ productId }) {
+  const [isARSupported, setIsARSupported] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [backgroundImage, setBackgroundImage] = useState(null);
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [scale, setScale] = useState(0.1);
+  const [isLocked, setIsLocked] = useState(false);
+  const [locationPermission, setLocationPermission] = useState(false);
+  const [planeDetected, setPlaneDetected] = useState(false);
+  const modelViewerRef = useRef(null);
+
+  // Check AR support, device type, and fetch product data
+  useEffect(() => {
+    const checkARSupport = async () => {
+      if ("xr" in navigator) {
+        try {
+          const supported = await navigator.xr.isSessionSupported(
+            "immersive-ar"
+          );
+          setIsARSupported(supported);
+        } catch (err) {
+          console.error("Error checking AR support:", err);
+          setIsARSupported(false);
+        }
+      }
+    };
+
+    const checkDeviceType = () => {
+      const userAgent = navigator.userAgent.toLowerCase();
+      setIsMobile(
+        /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+          userAgent
+        )
+      );
+    };
+
+    const fetchProductData = async () => {
+      if (!productId) {
+        setError("Product ID is required");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`${config.host}/product/${productId}`);
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch product data");
+        }
+
+        const data = await response.json();
+        setProduct(data);
+      } catch (err) {
+        console.error("Error fetching product:", err);
+        setError(err.message || "Failed to load product");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkARSupport();
+    checkDeviceType();
+    fetchProductData();
+  }, [productId]);
+
+  // Request location permission for better AR placement
+  const requestLocationPermission = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocationPermission(true);
+          // You could store coordinates here if needed for backend
+          console.log("Location access granted:", position.coords);
+        },
+        (err) => {
+          console.warn("Location permission denied:", err);
+          // Continue without precise location
+          setLocationPermission(false);
+        }
+      );
+    }
+  };
+
+  // Handle image upload for background/environment
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setBackgroundImage(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Increase scale
+  const increaseScale = () => {
+    setScale((prevScale) => Math.min(prevScale + 0.05, 2.0));
+    if (modelViewerRef.current) {
+      modelViewerRef.current.scale = `${scale} ${scale} ${scale}`;
+    }
+  };
+
+  // Decrease scale
+  const decreaseScale = () => {
+    setScale((prevScale) => Math.max(prevScale - 0.05, 0.05));
+    if (modelViewerRef.current) {
+      modelViewerRef.current.scale = `${scale} ${scale} ${scale}`;
+    }
+  };
+
+  // Toggle lock position
+  const toggleLock = () => {
+    setIsLocked(!isLocked);
+    if (modelViewerRef.current) {
+      // In a real implementation, you'd use the AR API to lock position
+      // This is simplified for this example
+      modelViewerRef.current.setAttribute(
+        "ar-status",
+        isLocked ? "not-tracking" : "tracking"
+      );
+    }
+  };
+
+  // Handle AR session start
+  const handleARStart = () => {
+    if (!locationPermission) {
+      requestLocationPermission();
+    }
+
+    // When AR starts, we listen for plane detection events
+    if (modelViewerRef.current) {
+      modelViewerRef.current.addEventListener("ar-status", (event) => {
+        if (event.detail.status === "tracking") {
+          setPlaneDetected(true);
+        }
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="w-screen h-[90vh] flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-lg text-gray-700">Loading product...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-screen h-[90vh] flex items-center justify-center bg-gray-100">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-8 py-6 rounded-lg">
+          <h2 className="text-xl font-bold mb-2">Error</h2>
+          <p>{error}</p>
+          <button
+            onClick={() => window.history.back()}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const modelUrl = product?.modelFile?.url || "/default-model.glb";
+
+  return (
+    <div className="w-screen h-[90vh] relative bg-gray-100">
+      {/* AR/3D Viewer */}
+      <model-viewer
+        ref={modelViewerRef}
+        src={modelUrl}
+        ios-src={modelUrl.replace(".glb", ".usdz")} // Convert to USDZ format URL if available
+        alt={product?.productName || "3D Model"}
+        camera-controls
+        shadow-intensity="2"
+        touch-action="pan-y"
+        ar
+        ar-modes={isMobile ? "webxr scene-viewer quick-look" : "webxr"}
+        ar-placement="floor" // Enable floor-based placement
+        ar-scale="fixed" // Start with fixed scaling
+        scale={`${scale} ${scale} ${scale}`}
+        style={{
+          width: "100%",
+          height: "100%",
+          background: backgroundImage
+            ? `url(${backgroundImage}) center/cover`
+            : "#fff",
+        }}
+        environment-image={backgroundImage || "neutral"}
+        exposure="1.0"
+        onARSessionStarted={() => handleARStart()}
+      >
+        {/* Product Info Overlay */}
+        <div className="absolute top-16 left-4 max-w-xs bg-white bg-opacity-90 p-3 rounded-lg shadow-lg">
+          <h3 className="font-bold text-lg">{product?.productName}</h3>
+          <p className="text-gray-700 text-sm mt-1">
+            ₹{product?.discountedPrice || product?.price}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">{product?.dimensions}</p>
+        </div>
+
+        {/* Controls Container */}
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-10 bg-white bg-opacity-80 rounded-full shadow-lg p-2 flex items-center space-x-3">
+          <motion.button
+            className="p-3 rounded-full bg-gray-100"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={decreaseScale}
+          >
+            <ZoomOut className="w-5 h-5" />
+          </motion.button>
+
+          <motion.button
+            className="p-3 rounded-full bg-gray-100"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={increaseScale}
+          >
+            <ZoomIn className="w-5 h-5" />
+          </motion.button>
+
+          <motion.button
+            className="p-3 rounded-full bg-gray-100"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={toggleLock}
+          >
+            <Lock
+              className={`w-5 h-5 ${
+                isLocked ? "text-blue-500" : "text-gray-500"
+              }`}
+            />
+          </motion.button>
+        </div>
+
+        {/* Upload Environment Button */}
+        <div className="fixed top-6 right-6 z-10">
+          <motion.label
+            className="flex items-center gap-2 bg-white shadow-lg rounded-full p-3 cursor-pointer hover:shadow-xl"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Upload className="w-6 h-6" />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </motion.label>
+        </div>
+
+        {/* AR Button with enhanced positioning logic */}
+        {isARSupported && (
+          <button
+            slot="ar-button"
+            className="absolute right-4 bottom-4 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            {isMobile ? "View in Your Space" : "Start AR Experience"}
+          </button>
+        )}
+
+        {/* Location Permission Warning */}
+        {isARSupported && !locationPermission && (
+          <div className="absolute left-4 bottom-4 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg max-w-xs">
+            <p className="text-sm">Location access improves AR placement.</p>
+            <button
+              onClick={requestLocationPermission}
+              className="mt-1 text-xs text-blue-600 underline"
+            >
+              Grant Access
+            </button>
+          </div>
+        )}
+
+        {/* Surface Detection Message */}
+        <div
+          slot="ar-status"
+          className={`absolute top-20 left-1/2 transform -translate-x-1/2 bg-white px-4 py-2 rounded-lg shadow-md transition-opacity duration-300 ${
+            planeDetected ? "opacity-0" : "opacity-100"
+          }`}
+        >
+          <p className="text-sm text-center">
+            Move your device to detect surfaces
+          </p>
+        </div>
+
+        {/* Fallback Message */}
+        {!isARSupported && (
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg">
+            AR not supported on this device. Using 3D viewer instead.
+          </div>
+        )}
+      </model-viewer>
+
+      {/* Back Button */}
+      <button
+        onClick={() => window.history.back()}
+        className="absolute top-4 left-4 px-4 py-2 bg-white rounded-lg shadow-md hover:bg-gray-50 transition-colors"
+      >
+        <ArrowLeft className="w-6 h-6 text-gray-700" />
+      </button>
+    </div>
+  );
+}

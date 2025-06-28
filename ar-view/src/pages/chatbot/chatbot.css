@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+.chatbot-container {
+  font-family: 'Inter', sans-serif;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+.typing-animation {
+  display: inline-block;
+  overflow: hidden;
+  border-right: .15em solid #4B5563;
+  white-space: nowrap;
+  margin: 0 auto;
+  letter-spacing: .15em;
+  animation: 
+    typing 3.5s steps(40, end),
+    blink-caret .75s step-end infinite;
+}
+
+@keyframes blink-caret {
+  from, to { border-color: transparent }
+  50% { border-color: #4B5563; }
+}
+
+.message-content {
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.message-content h2 {
+  font-size: 1.5rem;
+  color: #1F2937;
+}
+
+.message-content h3 {
+  font-size: 1.25rem;
+  color: #374151;
+}
+
+.message-content h4 {
+  font-size: 1.1rem;
+  color: #4B5563;
+}
+
+.message-content p {
+  font-size: 0.95rem;
+  color: #1F2937;
+}
+
+.message-content code {
+  font-size: 0.9rem;
+}
+
+.message-content blockquote {
+  font-size: 0.95rem;
+  color: #4B5563;
+}
+/* chatbot.css */
+.product-carousel {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: thin;
+  /* Firefox */
+}
+
+.product-carousel::-webkit-scrollbar {
+  height: 6px;
+}
+
+.product-carousel::-webkit-scrollbar-track {
+  background: #f7fafc;
+  border-radius: 10px;
+}
+
+.product-carousel::-webkit-scrollbar-thumb {
+  background-color: #cbd5e0;
+  border-radius: 10px;
+}
+
+/* Animation for loading dots */
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(0.8);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Card hover effects */
+.product-card {
+  transition: all 0.3s ease;
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Message typing animation */
+@keyframes typing {
+  0% {
+    width: 0
+  }
+
+  100% {
+    width: 100%
+  }
+}
+
+/* Improve text readability */
+.chat-message {
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+/* Improve button feedback */
+button:active {
+  transform: scale(0.97);
+}
